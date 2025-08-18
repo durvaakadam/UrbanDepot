@@ -39,41 +39,17 @@ const Availability = ({ placeId }) => {
   }, []); // No dependencies, as it does not rely on props or state
 
   useEffect(() => {
-    const fetchAvailability = async () => {
-      try {
-        const placeRef = doc(db, 'places', placeId);
-        const placeSnap = await getDoc(placeRef);
-
-        if (placeSnap.exists()) {
-          const placeData = placeSnap.data();
-          console.log('Place Data:', placeData); // Log the entire place data
-          const { availability } = placeData;
-
-          // Check the type of availability
-          console.log('Availability:', availability, 'Type:', typeof availability);
-
-          // Proceed only if availability is a string or can be converted to a string
-          if (typeof availability === 'string') {
-            const reservationsSnap = await getDocs(collection(placeRef, 'reservations'));
-            const reservations = reservationsSnap.docs.map(doc => doc.data());
-            
-            const availableSlots = calculateAvailableSlots(availability, reservations);
-            setAvailableTimes(availableSlots);
-          } else {
-            setError('Availability is not in the expected format.');
-          }
-        } else {
-          setError('Place not found.');
-        }
-      } catch (error) {
-        console.error('Error fetching availability:', error);
-        setError('Failed to fetch availability. Please try again later.');
-      }
-    };
-
-    fetchAvailability();
-  }, [placeId, calculateAvailableSlots]); // Include calculateAvailableSlots in the dependency array
-
+  const fetchData = async () => {
+    try {
+      const res = await fetch(`http://localhost:5000/availability/${placeId}`);
+      const data = await res.json();
+      setAvailableTimes(data.availableSlots || []);
+    } catch (err) {
+      setError("Failed to fetch data.");
+    }
+  };
+  fetchData();
+}, [placeId]);
   // Helper function to format time
   const formatTime = (date) => {
     return date.toTimeString().slice(0, 5); // Format to HH:MM

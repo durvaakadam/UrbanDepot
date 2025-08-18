@@ -6,19 +6,19 @@ import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas';
 import emailjs from 'emailjs-com';
 import { QRCodeCanvas } from 'qrcode.react'; // Update import
-import { ToastContainer, toast } from 'react-toastify';
-import 'react-toastify/dist/ReactToastify.css';
 
-const Ticket = ({ userEmail }) => {
+const Ticket = () => {
   const location = useLocation();
+  const userEmail = localStorage.getItem("userEmail");
   const { 
     address = 'N/A', 
     place,
     paymentId, 
     reservationData, 
-    totalAmount 
+    totalAmount
   } = location.state || {};
 
+  // Define EmailJS variables
   const emailJsServiceId = "service_47vx99l";
   const emailJsTemplateId = "template_ozillze";
   const emailJsUserId = "ekSsPejJYK6BBqm2F";
@@ -40,11 +40,13 @@ const Ticket = ({ userEmail }) => {
     const canvas = await html2canvas(input, { scale: 2 }); // Higher scale for better resolution
     const data = canvas.toDataURL('image/png');
 
-    const pdfWidth = 400; 
-    const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
+    // Calculate the PDF dimensions based on the canvas size
+    const pdfWidth = 400; // A4 width in mm
+    const pdfHeight = (canvas.height * pdfWidth) / canvas.width; // Scale height accordingly
 
     const pdf = new jsPDF('l', 'mm', [pdfWidth, pdfHeight]);
 
+    // Add image to the PDF
     pdf.addImage(data, 'PNG', 0, 0, pdfWidth, pdfHeight);
     pdf.save('ticket.pdf');
 };
@@ -52,7 +54,7 @@ const Ticket = ({ userEmail }) => {
 
   const sendEmail = async () => {
     const templateParams = {
-      to_email: userEmail,
+      to_email: reservationData.email,
       address: address,
       place: place,
       name: reservationData.name,
@@ -75,7 +77,7 @@ const Ticket = ({ userEmail }) => {
       );
 
       console.log('Email sent successfully!', response.status, response.text);
-      toast.success("Email sent successfully!");
+      alert("Email sent successfully!");
     } catch (err) {
       console.error('Failed to send email:', err);
       alert("Failed to send email.");
@@ -84,9 +86,6 @@ const Ticket = ({ userEmail }) => {
 
   return (
     <div className="ticket-wrapper">
-      <ToastContainer /> 
-      {/* this is the toast */}
-
       <div
         className="ticket-container"
         style={{ backgroundImage: `url("/ticket.png")` }}
@@ -115,14 +114,16 @@ const Ticket = ({ userEmail }) => {
           />
         </div>
   
+        {/* Separate Total Paid section */}
         <div className="total-paid">
     <p className="ticket-detail" style={{ fontSize: '1.8rem', fontWeight: 'bold' }}>
       <strong></strong> ₹{totalAmount}
     </p>
         </div>
       </div>
-
-      <div className="button-ticket">
+  
+      {/* Button Container placed outside ticket-container */}
+      <div className="button-container">
         <button className="ticket-button" onClick={downloadPDF}>
           Download Ticket PDF
         </button>
@@ -132,6 +133,9 @@ const Ticket = ({ userEmail }) => {
       </div>
     </div>
   );
+  
+  
+  
 };
 
 export default Ticket;

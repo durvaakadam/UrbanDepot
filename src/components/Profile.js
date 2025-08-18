@@ -59,38 +59,30 @@ const Profile = () => {
     };
 
     const fetchProfileData = async (email) => {
-        try {
-            const bookingsRef = collection(db, 'users', email, 'bookings');
-            const bookingsSnapshot = await getDocs(bookingsRef);
-            const bookingsList = bookingsSnapshot.docs.map((doc) => ({
-                id: doc.id,
-                ...doc.data(),
-            }));
-            setBookings(bookingsList);
+  try {
+    const [bookingsRes, placesRes] = await Promise.all([
+      fetch(`http://localhost:5000/api/profile/bookings/${email}`),
+      fetch(`http://localhost:5000/api/profile/places/${email}`)
+    ]);
 
-            const placesRef = collection(db, 'users', email, 'register');
-            const placesSnapshot = await getDocs(placesRef);
-            const placesList = placesSnapshot.docs.map((doc) => ({
-                id: doc.id,
-                ...doc.data(),
-            }));
-            setRegisteredPlaces(placesList);
+    const bookingsData = await bookingsRes.json();
+    const placesData = await placesRes.json();
 
-            // Fetch notifications (example data)
-            const notificationList = [
-                { id: 1, message: "Your booking for Parking Spot A is confirmed!", date: "2024-10-28" },
-                { id: 2, message: "Check-in reminder: Parking Spot B tomorrow at 10 AM.", date: "2024-10-29" },
-            ];
-            setNotifications(notificationList);
+    setBookings(bookingsData);
+    setRegisteredPlaces(placesData);
 
-        } catch (error) {
-            console.error('Error fetching profile data: ', error);
-            toast.error('Error fetching profile data. Please try again.');
-        }
-    };
-    if (loading) {
-        return <Loading />; // Display loading until data is ready
-    }
+    // Sample notifications
+    const notificationList = [
+      { id: 1, message: "Your booking for Parking Spot A is confirmed!", date: "2024-10-28" },
+      { id: 2, message: "Check-in reminder: Parking Spot B tomorrow at 10 AM.", date: "2024-10-29" },
+    ];
+    setNotifications(notificationList);
+  } catch (error) {
+    console.error("Error fetching profile data:", error);
+    toast.error("Error fetching profile data.");
+  }
+};
+
     const getBookingStatus = (booking) => {
         const now = new Date();
         const checkinDate = new Date(booking.checkin);
@@ -114,35 +106,39 @@ const Profile = () => {
     };
 
     const handleDeletePlace = async (placeId) => {
-        try {
-            const user = auth.currentUser;
-            if (user) {
-                await deleteDoc(doc(db, 'users', user.email, 'register', placeId));
-                setRegisteredPlaces((prevPlaces) => 
-                    prevPlaces.filter((place) => place.id !== placeId)
-                );
-                toast.success('Place deleted successfully.');
-            }
-        } catch (error) {
-            console.error('Error deleting place: ', error);
-            toast.error('Error deleting place. Please try again.');
-        }
-    };
+  try {
+    const user = auth.currentUser;
+    if (user) {
+      await fetch(`http://localhost:5000/api/profile/places/${user.email}/${placeId}`, {
+        method: "DELETE",
+      });
+
+      setRegisteredPlaces(prev => prev.filter(place => place.id !== placeId));
+      toast.success("Place deleted successfully.");
+    }
+  } catch (error) {
+    console.error("Error deleting place:", error);
+    toast.error("Error deleting place.");
+  }
+};
+
     const cancelBooking = async (bookingId) => {
-        try {
-            const user = auth.currentUser;
-            if (user) {
-                await deleteDoc(doc(db, 'users', user.email, 'bookings', bookingId));
-                setBookings((prevBookings) => 
-                    prevBookings.filter((booking) => booking.id !== bookingId)
-                );
-                toast.success('Booking canceled successfully.');
-            }
-        } catch (error) {
-            console.error('Error canceling booking: ', error);
-            toast.error('Error canceling booking. Please try again.');
-        }
-    };
+  try {
+    const user = auth.currentUser;
+    if (user) {
+      await fetch(`http://localhost:5000/api/profile/bookings/${user.email}/${bookingId}`, {
+        method: "DELETE",
+      });
+
+      setBookings(prev => prev.filter(booking => booking.id !== bookingId));
+      toast.success("Booking canceled successfully.");
+    }
+  } catch (error) {
+    console.error("Error canceling booking:", error);
+    toast.error("Error canceling booking.");
+  }
+};
+
     const confirmCancelBooking = (bookingId) => {
         const confirmToastId = toast(
             <div>
@@ -291,6 +287,8 @@ const Profile = () => {
         )}
     </div>
 )}
+
+
 {activeTab === 'places' && (
     <div className="section">
         <h3 className="section-heading">Registered Places</h3>
@@ -301,14 +299,8 @@ const Profile = () => {
                     <div key={place.id} className="card">
                         <h4><FaMapMarkerAlt /> {place.placeName}</h4> {/* Display Place Name as Title */}
                         <p><strong>Address:</strong> {place.address}</p>
-                        <p>
-                            <strong>Start Date:</strong> 
-                            {place.dateRange && place.dateRange.from ? place.dateRange.from : 'N/A'}
-                        </p> {/* Start Date */}
-                        <p>
-                            <strong>End Date:</strong> 
-                            {place.dateRange && place.dateRange.to ? place.dateRange.to : 'N/A'}
-                        </p> {/* End Date */}
+                        <p><strong>Start Date:</strong> {place.dateRange.from}</p> {/* Start Date */}
+                        <p><strong>End Date:</strong> {place.dateRange.to}</p>   {/* End Date */}
                         <p><strong>Access Type:</strong> {place.accessType}</p> {/* Display Access Type */}
                         <button
                             className="delete-button"

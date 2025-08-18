@@ -111,6 +111,8 @@ import { useLocation } from 'react-router-dom';
 import './cssfiles/ForPay.css';
 import Loading from './Loading';
 
+
+
 const Forpay = () => {
     const [datewiseReservations, setDatewiseReservations] = useState({});
     const location = useLocation();

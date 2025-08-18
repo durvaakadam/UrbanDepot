@@ -231,68 +231,61 @@ const RegisterPlace = () => {
   };
 
   const handleSubmit = async (e) => {
-    e.preventDefault();
-    setLoading(true); // Start loading state
-    if (!userEmail) {
-      setErrorMessage('No user is logged in. Please log in to register a place.');
-      return;
+  e.preventDefault();
+
+  if (!placeName || !address || !fromTime || !toTime || !fromDate || !toDate || !name ||
+    landmark.lat === null || landmark.lng === null || !aashaarcard || !nocLetter || !buildingPermission || !placePicture) {
+    toast.error("Please fill all fields and upload all documents");
+    return;
+  }
+
+  setLoading(true);
+
+  try {
+    const formData = new FormData();
+
+    // Add text data
+    const payload = {
+      placeName,
+      address,
+      name,
+      ownerEmail,
+      userEmail,
+      parking_number: parkingNumber || 'N/A',
+      availability: { from: fromTime, to: toTime },
+      dateRange: { from: fromDate, to: toDate },
+      landmark,
+      accessType,
+    };
+
+    formData.append('data', JSON.stringify(payload));
+    formData.append('aashaarcard', aashaarcard);
+    formData.append('nocLetter', nocLetter);
+    formData.append('buildingPermission', buildingPermission);
+    formData.append('placePicture', placePicture);
+
+    const response = await fetch('http://localhost:5000/api/register-place', {
+      method: 'POST',
+      body: formData
+    });
+
+    const result = await response.json();
+
+    if (response.ok) {
+      toast.success("Place registered successfully");
+      handleSendEmail(); // Still done from frontend if needed
+      setCurrentStep(1);
+    } else {
+      toast.error(result.error || "Failed to register place");
     }
-  
-    if (!placeName || !address || !fromTime || !toTime || !fromDate || !toDate || !name ||
-      (landmark.lat === null || landmark.lng === null) || !aashaarcard || !nocLetter || !buildingPermission || !placePicture) {  
-      setErrorMessage('Please fill in all the required fields and upload all documents.');
-      toast.error("Please fill in all the required fields and upload all documents.",{
-        style: {
-          fontSize: '16px',
-          borderRadius: '8px',
-          draggable: true,
-        },
-      })
-      return;
-    }
-  
-    try {
-      // Upload files and get URLs
-      const aashaarcardUrl = await uploadFile(aashaarcard);
-      const nocLetterUrl = await uploadFile(nocLetter);
-      const buildingPermissionUrl = await uploadFile(buildingPermission);
-      const placePictureUrl = await uploadFile(placePicture);
-  
-      // Add verified: false to placeData
-      const placeData = {
-        placeName,
-        address,
-        name,
-        ownerEmail,
-        parking_number: parkingNumber || 'N/A',
-        availability: { from: fromTime, to: toTime },
-        dateRange: { from: fromDate, to: toDate },
-        landmark,
-        accessType,
-        verified: false, // Default value set here
-        documents: {
-          aashaarcard: aashaarcardUrl,
-          nocLetter: nocLetterUrl,
-          buildingPermission: buildingPermissionUrl,
-          placePicture: placePictureUrl,
-        },
-      };
-  
-      const userDocRef = doc(db, 'users', userEmail);
-      const registerDocRef = doc(userDocRef, 'register', `${placeName.replace(/\s+/g, '_')}-${Date.now()}`);
-      await setDoc(registerDocRef, placeData);
-  
-      const placesDocRef = doc(db, 'places', placeName.replace(/\s+/g, '_'));
-      await setDoc(placesDocRef, placeData);
-  
-      setErrorMessage('');
-      handleSendEmail();
-      setCurrentStep(1); // Reset to the first step after submission
-    } catch (error) {
-      console.error('Error registering place:', error);
-      setErrorMessage('Error registering place. Please try again.');
-    }
-  };  
+  } catch (error) {
+    console.error('Error:', error);
+    toast.error("Something went wrong");
+  } finally {
+    setLoading(false);
+  }
+};
+
   const handleFileChange = (file, setter, isAadhar = false) => {
     console.log("Received file:", file); // Debugging: log the received file
     setter(file);
@@ -404,7 +397,7 @@ return (
   </div>
       <div className="register-place-container">
         {/* <h2>Place Registration Form</h2> */}
-        {userName && <h3>Hi, welcome {userName}</h3>}
+        {userName && <h3>HI, welcome {userName}</h3>}
 
         <div className="slider">
           <form onSubmit={handleSubmit} className="register-place-form">

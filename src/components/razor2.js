@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { doc, getDoc } from 'firebase/firestore';
 import db from '../firebaseConfig';
-import './cssfiles/RazorpayPayment.css';
+import './RazorpayPayment.css';
 import emailjs from 'emailjs-com';
 import Loading from './Loading';
 import { ToastContainer, toast } from 'react-toastify';
@@ -87,89 +87,51 @@ const RazorpayPayment = () => {
 
   const { differenceInHours, hourlyRate, platformFee, totalAmount } = calculateTotalAmount();
 
-  const handlePayment = async () => {
-  setLoading(true);
-
-  try {
-    // Convert to paise (integer)
-    const amountInPaise = Math.round(parseFloat(totalAmount) * 100);
-
-    const orderRes = await fetch('http://localhost:5000/api/create-order', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ amount: amountInPaise })  // 👈 Send in paise
-    });
-
-    const order = await orderRes.json();
-
+  const handlePayment = () => {
     const options = {
-        key: razorpayApiKey,
-        amount: amountInPaise,
-        currency: order.currency,
-        name: "UrbanDepot",
-        description: "Parking Reservation Payment",
-        order_id: order.id,
-        handler: async function (response) {
-          console.log("Payment Response:", response);
+      key: razorpayApiKey,
+      amount: (totalAmount * 100), // Use the total amount in paise
+      currency: "INR",
+      name: "UrbanDepot",
+      description: "Parking Reservation Payment",
+      handler: async function (response) {
+        console.log('Payment Response:', response);
+        setLoading(true);
+        await sendEmailToOwner(response.razorpay_payment_id);
+        setLoading(false);
 
-          try {
-            // ✅ Step 3: Verify payment in backend
-            const verifyRes = await fetch("http://localhost:5000/api/verify-payment", {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({
-                razorpay_order_id: response.razorpay_order_id,
-                razorpay_payment_id: response.razorpay_payment_id,
-                razorpay_signature: response.razorpay_signature,
-              }),
-            });
-
-            const verifyData = await verifyRes.json();
-
-            if (verifyData.verified) {
-              console.log("✅ Payment verified successfully");
-              await sendEmailToOwner(response.razorpay_payment_id);
-
-              setLoading(false);
-              navigate("/ticket", {
-                state: {
-                  paymentId: response.razorpay_payment_id,
-                  address,
-                  place,
-                  reservationData,
-                  totalAmount, // in ₹
-                },
-              });
-            } else {
-              console.error("❌ Payment verification failed");
-              setLoading(false);
-              alert("Payment verification failed");
-            }
-          } catch (err) {
-            console.error("Verification error:", err);
-            setLoading(false);
+        navigate('/ticket', { 
+          state: {
+            paymentId: response.razorpay_payment_id,
+            address,
+            place,
+            reservationData: {
+              checkinDate,
+              checkoutDate,
+              checkinTime,
+              checkoutTime,
+              name,
+              email,
+              contactNumber,
+              vehicleType
+            },
+            totalAmount: totalAmount // Total amount in INR
           }
-        },
-        prefill: {
-          name,
-          email,
-          contact: contactNumber,
-        },
-        theme: {
-          color: "#F37254",
-        },
-      };
-
-    const rzp = new window.Razorpay(options);
-    rzp.open();
-
-  } catch (err) {
-    console.error("Payment error:", err);
-    alert("Payment failed. Please try again.");
-    setLoading(false);
-  }
-};
-
+        });
+      },
+      prefill: {
+        name: name,
+        email: email,
+        contact: contactNumber,
+      },
+      theme: {
+        color: "#F37254"
+      }
+    };
+  
+    const rzp1 = new window.Razorpay(options);
+    rzp1.open();
+  };
 
   const sendEmailToOwner = async (paymentId) => {
     console.log("Entered emailing function");
@@ -197,7 +159,8 @@ const RazorpayPayment = () => {
         'WfUPqJH0cRzftZSDI'
       );
       console.log('Email sent successfully!', response.status, response.text);
-      alert('NOTIFIED THE OWNER SUCCESSFULLY!');
+      toast.success("NOTIFIED THE OWNER SUCCESSFULLY!");
+
     } catch (error) {
       console.error('Error sending email:', error);
       alert('Error sending email. Please try again.');
@@ -206,6 +169,8 @@ const RazorpayPayment = () => {
 
   return (
     <div className="rzp-container">
+      <ToastContainer /> {/* Toast Container added for notifications */}
+
       {loading ? (
         <Loading />
       ) : (

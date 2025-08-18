@@ -48,7 +48,7 @@ const FileUpload = ({ onFileChange, label, required, id }) => {
 
   return (
     <div className="file-upload">
-      {required && <span className="required-asterisk">*</span>} {/* Separate span for the asterisk */}
+      <label>{label}{required && '*'}</label>
       <div
         className="drop-box"
         onDrop={handleDrop}

@@ -21,13 +21,15 @@ const SignUp = () => {
       alert("Passwords do not match!");
       return;
     }
+
     try {
       const userCredential = await createUserWithEmailAndPassword(auth, email, password);
       const user = userCredential.user;
 
+      // Save user data in Firestore using email as the document ID
       await setDoc(doc(db, "users", email), {
-        uid: user.uid,  
-        email: user.email, 
+        uid: user.uid,  // Store the user UID
+        email: user.email, // Initialize with an empty array
       });
 
       await sendEmailVerification(user);
@@ -43,6 +45,7 @@ const SignUp = () => {
       const result = await signInWithPopup(auth, googleProvider);
       const user = result.user;
 
+      // Save user data in Firestore using email as the document ID
       await setDoc(doc(db, "users", user.email), {
         uid: user.uid,  // Store the user UID
         email: user.email,

@@ -62,7 +62,7 @@ const Navbar = ({ userEmail }) => {
       <i className="fas fa-question-circle" style={{ color: 'white', marginRight: '12px' }}></i> FAQ
     </Link>
     <button className="urban-navbar-logout-btn" onClick={handleLogout}>
-      <i className="fas fa-sign-out-alt" style={{ color: 'white', marginRight: '13px' }}></i> Logout
+      <i className="fas fa-sign-out-alt" style={{ color: 'white', marginRight: '12px' }}></i> Logout
     </button>
   </div>
 )}
@@ -71,8 +71,7 @@ const Navbar = ({ userEmail }) => {
       {/* renders the email */}
       {userEmail && (
         <div className="urban-navbar-user-info">
-          <span className="urban-navbar-user-email">{userEmail}</span> 
-          
+          <span className="urban-navbar-user-email">{userEmail}</span>
         </div>
       )}
     </nav>
