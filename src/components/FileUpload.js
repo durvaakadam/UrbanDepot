@@ -5,6 +5,7 @@ const uploadIcon = './drag-and-drop.png';
 const FileUpload = ({ onFileChange, label, required, id }) => {
   const [files, setFiles] = useState([]);
 
+  
   const handleDrop = (e) => {
     e.preventDefault();
     const droppedFiles = Array.from(e.dataTransfer.files);
