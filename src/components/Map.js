@@ -6,9 +6,10 @@ import 'react-toastify/dist/ReactToastify.css';
 import { db } from '../firebaseConfig';
 import { collection, onSnapshot } from "firebase/firestore";
 
-import { Navigate } from "react-router-dom"; // Import Navigate from react-router-dom
+import { Navigate, useNavigate } from "react-router-dom"; // Import Navigate and useNavigate from react-router-dom
 const mapsApiKey = process.env.REACT_APP_MAPS_API_KEY;
 const Map = () => {
+    const navigate = useNavigate(); // Add useNavigate hook
 
     const [isLoggedIn, setIsLoggedIn] = useState(false); // New state for login status
     const [places, setPlaces] = useState([]);
@@ -346,9 +347,8 @@ setSearchMarkers(prevMarkers => [...prevMarkers, marker]);
     const [isMapShrunk, setIsMapShrunk] = useState(false); //for shrinking the map on get-direction event
 
     const proceedToBook = (place) => {
-        const charge = place.charge || place.chargeAvailability || "30"; // Fallback to default charge
-        const query = `?lat=${place.lat}&lng=${place.lng}&id=${encodeURIComponent(place.id)}&charge=${charge}&address=${encodeURIComponent(place.address)}`;
-        window.location.href = `/reservation${query}`;
+        const query = `?lat=${place.lat}&lng=${place.lng}&name=${encodeURIComponent(place.id)}&charge=${place.chargeAvailability}&id=${selectedPlace.id}&address=${place.address}`;
+        navigate(`/reservation${query}`);
     };
  
     const resetMap = () => {

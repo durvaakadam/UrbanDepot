@@ -11,7 +11,7 @@ import {
   signInWithPopup,
   onAuthStateChanged,
 } from "firebase/auth";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import styles from './cssfiles/Login.css';
 import 'boxicons/css/boxicons.min.css';
 import { ToastContainer, toast } from 'react-toastify';
@@ -26,6 +26,12 @@ const Login = () => {
   const [isSignUp, setIsSignUp] = useState(false);
   const [showForgotPassword, setShowForgotPassword] = useState(false);
   const navigate = useNavigate();
+  const location = useLocation();
+  
+  // Get the page user was trying to access before being redirected to login
+  const from = location.state?.from 
+    ? location.state.from.pathname + (location.state.from.search || '') 
+    : "/map";
 
   // Admin credentials
   const adminEmail = "admin@gmail.com";
@@ -70,7 +76,7 @@ const Login = () => {
       console.log("✅ Backend Response:", data);
 
       alert("Login successful!");
-      navigate("/map");
+      navigate(from, { replace: true }); // Navigate back to the original page
 
     } catch (error) {
       alert(`Login Error: ${error.message}`);
@@ -123,7 +129,7 @@ const Login = () => {
       console.log("✅ Backend Google Login Response:", data);
 
       alert("Google login successful!");
-      navigate("/map");
+      navigate(from, { replace: true }); // Navigate back to the original page
 
     } catch (error) {
       alert(`Google Login Error: ${error.message}`);

@@ -248,7 +248,7 @@ app.post("/api/create-order", async (req, res) => {
   const { amount } = req.body
 
   const options = {
-    amount: amount * 100, // in paise
+    amount: amount, // already in paise from frontend
     currency: "INR",
     receipt: `receipt_order_${Math.random()}`,
   }
@@ -438,7 +438,7 @@ app.get("/api/reservations-grouped", async (req, res) => {
     }
 
     const groupedReservations = reservationsList.reduce((acc, reservation) => {
-      const { reservationDate, platform_fee } = reservation
+      const { reservationDate, total_amount } = reservation
 
       if (!acc[reservationDate]) {
         acc[reservationDate] = {
@@ -448,7 +448,7 @@ app.get("/api/reservations-grouped", async (req, res) => {
       }
 
       acc[reservationDate].reservations.push(reservation)
-      acc[reservationDate].total += Number(platform_fee) || 0
+      acc[reservationDate].total += Number(total_amount) || 0
 
       return acc
     }, {})
@@ -618,14 +618,22 @@ app.post("/api/reserve", upload.fields([{ name: "licensePhoto" }, { name: "plate
       return res.status(409).json({ error: "Time slot already booked" })
     }
 
-    // Calculate total & platform fee
-    let baseAmount = 0
-    const type = data.vehicleType.toLowerCase()
-    if (type === "car") baseAmount = 30
-    else if (type === "bike" || type === "scooter") baseAmount = 20
-    else if (type === "bicycle") baseAmount = 10
+    // Calculate total & platform fee based on duration
+    const checkin = new Date(`${data.checkinDate}T${data.checkinTime}`)
+    const checkout = new Date(`${data.checkoutDate}T${data.checkoutTime}`)
+    const differenceInHours = (checkout - checkin) / (1000 * 60 * 60) // Hours difference
 
-    const platformFee = (baseAmount * 0.05).toFixed(2)
+    const hourlyRates = {
+      car: 30,
+      bike: 20,
+      scooter: 20,
+      bicycle: 10
+    }
+
+    const hourlyRate = hourlyRates[data.vehicleType.toLowerCase()] || 0
+    const baseAmount = differenceInHours * hourlyRate
+    const platformFeePercentage = 0.05
+    const platformFee = (baseAmount * platformFeePercentage).toFixed(2)
     const totalAmount = (baseAmount + Number.parseFloat(platformFee)).toFixed(2)
 
     const reservationData = {
@@ -717,7 +725,7 @@ app.get("/api/dashboard/booking-trends", async (req, res) => {
         }
 
         bookingTrends[dateKey].count += 1
-        bookingTrends[dateKey].revenue += Number.parseFloat(reservation.platform_fee || 0)
+        bookingTrends[dateKey].revenue += Number.parseFloat(reservation.total_amount || 0)
       })
     }
 
@@ -750,10 +758,12 @@ app.get("/api/dashboard/revenue-insights", async (req, res) => {
       reservationsSnapshot.forEach((reservationDoc) => {
         const reservation = reservationDoc.data()
         const platformFee = Number.parseFloat(reservation.platform_fee || 0)
+        const totalAmount = Number.parseFloat(reservation.total_amount || 0)
         const vehicleType = reservation.vehicleType || "unknown"
 
-        totalRevenue += platformFee
-        placeRevenue += platformFee
+        // Use total amount paid by user, not just platform fee
+        totalRevenue += totalAmount
+        placeRevenue += totalAmount
         totalBookings += 1
         placeBookings += 1
 
@@ -761,7 +771,7 @@ app.get("/api/dashboard/revenue-insights", async (req, res) => {
         if (!revenueByVehicleType[vehicleType]) {
           revenueByVehicleType[vehicleType] = { revenue: 0, count: 0 }
         }
-        revenueByVehicleType[vehicleType].revenue += platformFee
+        revenueByVehicleType[vehicleType].revenue += totalAmount
         revenueByVehicleType[vehicleType].count += 1
       })
 
@@ -870,8 +880,8 @@ app.get("/api/dashboard/owner/:email", async (req, res) => {
 
         reservationsSnapshot.forEach((reservationDoc) => {
           const reservation = reservationDoc.data()
-          const platformFee = Number.parseFloat(reservation.platform_fee || 0)
-          placeRevenue += platformFee
+          const totalAmount = Number.parseFloat(reservation.total_amount || 0)
+          placeRevenue += totalAmount
         })
 
         totalRevenue += placeRevenue

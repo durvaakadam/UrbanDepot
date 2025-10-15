@@ -24,28 +24,60 @@ const LandingPage = () => {
     };
   }, []);
 
-  const handleKeyDown = useCallback((event) => {
-    if (event.key === 'Enter') {
-      setFadeOut(true);
-      setTimeout(() => navigate('/home1'), 1200); // Match this timeout to the animation duration
-    }
+  const handleNavigation = useCallback(() => {
+    setFadeOut(true);
+    setTimeout(() => navigate('/home1'), 1200); // Match this timeout to the animation duration
   }, [navigate]);
 
-  useEffect(() => {
-    // Attach keydown event listener
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [handleKeyDown]);
+  const handleKeyDown = useCallback((event) => {
+    if (event.key === 'Enter') {
+      handleNavigation();
+    }
+  }, [handleNavigation]);
 
-  const handleContainerClick = () => {
+  const handleTouchStart = useCallback((event) => {
+    // Prevent default to avoid unwanted behaviors
+    event.preventDefault();
+    handleNavigation();
+  }, [handleNavigation]);
+
+  const handleClick = useCallback((event) => {
+    // Only trigger if clicking on the main container, not the iframe
+    if (event.target === mainContainerRef.current || event.target.closest('.overlay-text')) {
+      handleNavigation();
+    }
+  }, [handleNavigation]);
+
+  useEffect(() => {
+    // Attach keydown event listener for desktop
+    window.addEventListener('keydown', handleKeyDown);
+    
+    // Attach touch events for mobile
+    const container = mainContainerRef.current;
+    if (container) {
+      container.addEventListener('touchstart', handleTouchStart, { passive: false });
+      container.addEventListener('click', handleClick);
+    }
+
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+      if (container) {
+        container.removeEventListener('touchstart', handleTouchStart);
+        container.removeEventListener('click', handleClick);
+      }
+    };
+  }, [handleKeyDown, handleTouchStart, handleClick]);
+
+  const handleContainerFocus = () => {
     if (mainContainerRef.current) {
-      mainContainerRef.current.focus(); // Refocus the main container on click
-      console.log("Container clicked and focused."); // Log focus action
+      mainContainerRef.current.focus(); // Refocus the main container
+      console.log("Container focused for keyboard navigation."); // Log focus action
     }
   };
 
   const handleIframeClick = (event) => {
     event.preventDefault(); // Prevent the iframe from capturing focus
+    event.stopPropagation(); // Stop event bubbling
     if (mainContainerRef.current) {
       mainContainerRef.current.focus(); // Refocus the main container
       console.log("Iframe clicked; refocusing container."); // Log action
@@ -55,13 +87,18 @@ const LandingPage = () => {
   return (
     <div
       className={`main ${fadeOut ? 'fade-out' : ''}`}
-      onClick={handleContainerClick} // Handle click to refocus
+      onFocus={handleContainerFocus} // Handle focus for keyboard navigation
       ref={mainContainerRef} // Attach the ref to the main container
       tabIndex="0" // Allow the div to be focusable
-      style={{ width: '100vw', height: '100vh', position: 'relative' }} // Make it cover the viewport
+      style={{ width: '100vw', height: '100vh', position: 'relative', cursor: 'pointer' }} // Make it cover the viewport and show pointer cursor
     >
       <div className="overlay-text">
         <h1 ref={el}></h1> {/* Using ref for typing effect */}
+        <p className="enter-instruction">
+          <span className="desktop-instruction">Press Enter</span>
+          <span className="mobile-instruction">Tap anywhere</span>
+          {" "}to continue
+        </p>
       </div>
       <div className="background-iframe" style={{ width: '100%', height: '100%' }}>
         <iframe

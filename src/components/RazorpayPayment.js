@@ -91,6 +91,12 @@ const RazorpayPayment = () => {
   try {
     // Convert to paise (integer)
     const amountInPaise = Math.round(parseFloat(totalAmount) * 100);
+    
+    console.log("Payment Details:");
+    console.log("- Total Amount (₹):", totalAmount);
+    console.log("- Amount in Paise:", amountInPaise);
+    console.log("- API URL:", process.env.REACT_APP_API_URL);
+    console.log("- Razorpay Key:", razorpayApiKey ? "Present" : "Missing");
 
     const orderRes = await fetch(`${process.env.REACT_APP_API_URL}/api/create-order`, {
       method: 'POST',
@@ -98,11 +104,21 @@ const RazorpayPayment = () => {
       body: JSON.stringify({ amount: amountInPaise })  // 👈 Send in paise
     });
 
+    if (!orderRes.ok) {
+      throw new Error(`Order creation failed: ${orderRes.status} ${orderRes.statusText}`);
+    }
+
     const order = await orderRes.json();
+    
+    if (!order.id) {
+      throw new Error("Invalid order response from server");
+    }
+    
+    console.log("Order created successfully:", order);
 
     const options = {
         key: razorpayApiKey,
-        amount: amountInPaise,
+        amount: order.amount, // Use amount from order response
         currency: order.currency,
         name: "UrbanDepot",
         description: "Parking Reservation Payment",
@@ -156,9 +172,23 @@ const RazorpayPayment = () => {
         theme: {
           color: "#F37254",
         },
+        modal: {
+          ondismiss: function() {
+            console.log("Payment modal was closed by user");
+            setLoading(false);
+          }
+        }
       };
 
     const rzp = new window.Razorpay(options);
+    
+    // Add error handling for Razorpay
+    rzp.on('payment.failed', function (response) {
+      console.error("Payment failed:", response.error);
+      alert(`Payment failed: ${response.error.description}`);
+      setLoading(false);
+    });
+    
     rzp.open();
 
   } catch (err) {

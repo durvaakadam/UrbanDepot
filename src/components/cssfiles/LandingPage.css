@@ -17,6 +17,9 @@ body {
   position: relative;
   color: #ffffff;
   transition: opacity 1.2s ease, transform 1.2s ease; /* Smooth transition */
+  user-select: none; /* Prevent text selection on mobile */
+  -webkit-touch-callout: none; /* Disable callout on iOS */
+  -webkit-user-select: none; /* Disable selection on iOS */
 }
 
 .fade-out {
@@ -72,6 +75,61 @@ body {
   margin-top: 10px;
   color: #eeeeee;
   animation-delay: 0.8s;
+}
+
+/* Instruction text styling */
+.enter-instruction {
+  font-size: 1.2rem !important;
+  font-weight: 400 !important;
+  margin-top: 20px !important;
+  color: #ffffff !important;
+  animation-delay: 1.2s !important;
+  text-shadow: 1px 1px 4px rgba(0, 0, 0, 0.7);
+}
+
+.desktop-instruction {
+  display: inline;
+}
+
+.mobile-instruction {
+  display: none;
+}
+
+/* Mobile styles */
+@media (max-width: 768px) {
+  .overlay-text h1 {
+    font-size: 2.5rem;
+  }
+  
+  .overlay-text p {
+    font-size: 1.2rem;
+  }
+  
+  .enter-instruction {
+    font-size: 1rem !important;
+  }
+  
+  .desktop-instruction {
+    display: none;
+  }
+  
+  .mobile-instruction {
+    display: inline;
+  }
+}
+
+@media (max-width: 480px) {
+  .overlay-text h1 {
+    font-size: 2rem;
+  }
+  
+  .overlay-text p {
+    font-size: 1rem;
+  }
+  
+  .enter-instruction {
+    font-size: 0.9rem !important;
+  }
 }
 
 /* Background Animation */
