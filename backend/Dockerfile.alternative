@@ -1,0 +1,40 @@
+# ---- Stage: test (installs dev deps and runs tests when container starts) ----
+FROM node:18-alpine AS test
+WORKDIR /app
+COPY package*.json ./
+RUN npm ci
+COPY . .
+ENV PORT=8080
+# When we run this image in CI, it will execute tests:
+CMD ["npm", "test"]
+
+# ---- Stage: runtime (production container) ----
+FROM node:18-alpine AS runtime
+
+# Install Python and try to use system OpenCV packages
+RUN apk add --no-cache \
+    python3 \
+    py3-pip \
+    py3-numpy \
+    py3-opencv \
+    && ln -sf python3 /usr/bin/python
+
+# If py3-opencv is not available, fall back to pip installation
+RUN if ! python3 -c "import cv2" 2>/dev/null; then \
+        python3 -m venv /opt/venv && \
+        . /opt/venv/bin/activate && \
+        pip install --no-cache-dir opencv-python-headless numpy; \
+    fi
+
+# Ensure Python packages are accessible
+ENV PATH="/opt/venv/bin:$PATH"
+
+WORKDIR /app
+COPY package*.json ./
+RUN npm ci --omit=dev
+COPY . .
+
+ENV NODE_ENV=production
+ENV PORT=8080
+EXPOSE 8080
+CMD ["node", "index.js"]

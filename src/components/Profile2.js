@@ -192,72 +192,96 @@ const [showDemoVideo, setShowDemoVideo] = useState(false);
 {selectedPlace && (
   <div className="overlay">
     <div className="overlay-card">
-      <h4>Bookings for {selectedPlace.placeName}</h4>
+      <div className="overlay-header">
+        <h4>Bookings for {selectedPlace.placeName}</h4>
+        <button className="close-x-btn" onClick={() => setSelectedPlace(null)}>
+          ×
+        </button>
+      </div>
 
-      {/* Button to view live/demo feed */}
-      <button
-        className="live-feed-btn"
-        onClick={() => setShowDemoVideo(true)}
-      >
-        🎥 View Demo Feed
-      </button>
+      <div className="overlay-card-content">
+        {/* Button to view live/demo feed */}
+        <button
+          className="live-feed-btn"
+          onClick={() => setShowDemoVideo(true)}
+        >
+          🎥 View Demo Feed
+        </button>
 
-      {loadingPlaceBookings ? (
-        <p>Loading...</p>
-      ) : (
-        placeBookings.length > 0 ? (
-          <div className="card-container">
-            {placeBookings.map(booking => (
-              <div key={booking.id} className="overlay-booking-card">
-                <div className="booking-header">
-                  <span className={`badge1 ${getBookingStatus(booking).toLowerCase()}`}>
-                    {getBookingStatus(booking)}
-                  </span>
-                  <h5>Booking #{booking.id}</h5>
-                </div>
-
-                <div className="booking-details">
-                  <div className="detail-row">
-                    <span className="label">🚗 License Plate:</span>
-                    <span className="value">{booking.licensePlate}</span>
-                  </div>
-                  <div className="detail-row">
-                    <span className="label">📅 Check-in:</span>
-                    <span className="value">{booking.checkin}</span>
-                  </div>
-                  <div className="detail-row">
-                    <span className="label">🕒 Check-out:</span>
-                    <span className="value">{booking.checkout}</span>
-                  </div>
-                  <div className="detail-row">
-                    <span className="label">🚙 Vehicle Type:</span>
-                    <span className="value">{booking.vehicleType}</span>
-                  </div>
-                  <div className="detail-row charge">
-                    <span className="label">💰 Charge:</span>
-                    <span className="value">Rs. {booking.total_amount}</span>
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
+        {loadingPlaceBookings ? (
+          <p>Loading...</p>
         ) : (
-          <p>No bookings for this place.</p>
-        )
-      )}
+          placeBookings.length > 0 ? (
+            <div className="card-container">
+              {placeBookings.map(booking => (
+                <div key={booking.id} className="overlay-booking-card">
+                  <div className="booking-header">
+                    <span className={`badge1 ${getBookingStatus(booking).toLowerCase()}`}>
+                      {getBookingStatus(booking)}
+                    </span>
+                    <h5>Booking #{booking.id}</h5>
+                  </div>
 
-      {/* Close overlay */}
-      <button className="close-overlay-btn" onClick={() => setSelectedPlace(null)}>Close</button>
+                  <div className="booking-details">
+                    <div className="detail-row">
+                      <span className="label">🚗 License Plate:</span>
+                      <span className="value">{booking.licensePlate}</span>
+                    </div>
+                    <div className="detail-row">
+                      <span className="label">📅 Check-in:</span>
+                      <span className="value">{booking.checkin}</span>
+                    </div>
+                    <div className="detail-row">
+                      <span className="label">🕒 Check-out:</span>
+                      <span className="value">{booking.checkout}</span>
+                    </div>
+                    <div className="detail-row">
+                      <span className="label">🚙 Vehicle Type:</span>
+                      <span className="value">{booking.vehicleType}</span>
+                    </div>
+                    <div className="detail-row charge">
+                      <span className="label">💰 Charge:</span>
+                      <span className="value">Rs. {booking.total_amount}</span>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <p>No bookings for this place.</p>
+          )
+        )}
+      </div>
+
+      <div className="overlay-card-footer">
+        <button className="close-overlay-btn" onClick={() => setSelectedPlace(null)}>
+          Close
+        </button>
+      </div>
     </div>
 
     {/* Demo video overlay */}
     {showDemoVideo && (
       <div className="demo-video-overlay">
         <div className="demo-video-card">
-          <button className="close-overlay-btn" onClick={() => setShowDemoVideo(false)}>Close</button>
-          <video width="640" height="360" controls autoPlay>
-            <source src="/car_demo.mp4" type="video/mp4" />
-          </video>
+          <div className="demo-video-header">
+            <h4>Demo Feed</h4>
+            <button className="close-x-btn" onClick={() => setShowDemoVideo(false)}>
+              ×
+            </button>
+          </div>
+          
+          <div className="demo-video-content">
+            <video width="640" height="360" controls autoPlay>
+              <source src="/car_demo.mp4" type="video/mp4" />
+            </video>
+            
+            <div style={{ marginTop: '15px' }}>
+              <button className="demo-close-btn" onClick={() => setShowDemoVideo(false)}>
+                Close
+              </button>
+            </div>
+          </div>
         </div>
       </div>
     )}

@@ -88,6 +88,46 @@
   text-overflow: ellipsis;
 }
 
+.existing-file-preview {
+  width: 100%;
+  padding: 10px;
+  text-align: center;
+  position: relative;
+}
+
+.existing-file-indicator {
+  background-color: #28a745;
+  color: white;
+  padding: 3px 8px;
+  border-radius: 10px;
+  font-size: 10px;
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  margin: 5px 0;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.2);
+}
+
+.existing-file-indicator i {
+  font-size: 10px;
+}
+
+.change-file-btn {
+  background-color: #007bff;
+  color: white;
+  border: none;
+  padding: 4px 8px;
+  border-radius: 3px;
+  cursor: pointer;
+  font-size: 10px;
+  margin-top: 5px;
+  transition: background-color 0.3s ease;
+}
+
+.change-file-btn:hover {
+  background-color: #0056b3;
+}
+
 .row1 {
   display: flex;
   /* gap: 40px; */

@@ -8,23 +8,24 @@ ENV PORT=8080
 # When we run this image in CI, it will execute tests:
 CMD ["npm", "test"]
 
-# ---- Stage: runtime (production container) ----
+# ---- Stage: runtime (production container with better Python support) ----
 FROM node:18-slim AS runtime
 
-# Install Python and essential dependencies
+# Install Python and system dependencies
 RUN apt-get update && apt-get install -y \
     python3 \
     python3-pip \
     python3-venv \
+    python3-opencv \
     && rm -rf /var/lib/apt/lists/*
 
 # Create virtual environment
 RUN python3 -m venv /opt/venv
 ENV PATH="/opt/venv/bin:$PATH"
 
-# Install Python packages with error handling
-RUN pip install --upgrade pip && \
-    (pip install --no-cache-dir numpy opencv-python-headless || echo "OpenCV installation failed - will use mock data")
+# Install Python packages (fallback if system packages aren't sufficient)
+RUN pip install --upgrade pip
+RUN pip install numpy opencv-python-headless || echo "Using system OpenCV"
 
 WORKDIR /app
 COPY package*.json ./

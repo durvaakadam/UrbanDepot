@@ -208,22 +208,80 @@ app.delete("/api/places/:id", async (req, res) => {
   }
 })
 
-// ✅ Fetch all bookings for a place (auto-resolve placeId)
+// ✅ Fetch all bookings for a place (improved search)
 app.get("/api/profile/bookings/place/:placeName", async (req, res) => {
   try {
     const { placeName } = req.params
     console.log("📌 Fetching bookings for place:", placeName)
 
-    // Find the Firestore place doc whose ID starts with placeName
-    const placesSnapshot = await db.collection("places").get()
-    const placeDoc = placesSnapshot.docs.find((doc) => doc.id.startsWith(placeName))
+    let placeDoc = null
+
+    // Method 1: Try exact match first
+    try {
+      const exactDoc = await db.collection("places").doc(placeName).get()
+      if (exactDoc.exists) {
+        placeDoc = exactDoc
+        console.log("✅ Found place by exact match:", placeName)
+      }
+    } catch (error) {
+      console.log("⚠️ Exact match failed for:", placeName)
+    }
+
+    // Method 2: Try with underscores (placeName with spaces converted)
+    if (!placeDoc) {
+      try {
+        const underscoreVersion = placeName.replace(/\s+/g, "_")
+        const underscoreDoc = await db.collection("places").doc(underscoreVersion).get()
+        if (underscoreDoc.exists) {
+          placeDoc = underscoreDoc
+          console.log("✅ Found place by underscore version:", underscoreVersion)
+        }
+      } catch (error) {
+        console.log("⚠️ Underscore match failed for:", placeName)
+      }
+    }
+
+    // Method 3: Search by placeName field in documents
+    if (!placeDoc) {
+      try {
+        const placesSnapshot = await db.collection("places").where("placeName", "==", placeName).get()
+        if (!placesSnapshot.empty) {
+          placeDoc = placesSnapshot.docs[0]
+          console.log("✅ Found place by placeName field:", placeName)
+        }
+      } catch (error) {
+        console.log("⚠️ Field search failed for:", placeName)
+      }
+    }
+
+    // Method 4: Fallback to startsWith search
+    if (!placeDoc) {
+      try {
+        const placesSnapshot = await db.collection("places").get()
+        const foundDoc = placesSnapshot.docs.find((doc) => {
+          const docId = doc.id
+          const data = doc.data()
+          return docId.startsWith(placeName) || 
+                 docId.startsWith(placeName.replace(/\s+/g, "_")) ||
+                 (data.placeName && data.placeName.toLowerCase() === placeName.toLowerCase())
+        })
+        
+        if (foundDoc) {
+          placeDoc = foundDoc
+          console.log("✅ Found place by fallback search:", foundDoc.id)
+        }
+      } catch (error) {
+        console.log("⚠️ Fallback search failed for:", placeName)
+      }
+    }
 
     if (!placeDoc) {
       console.log("⚠️ Place not found for name:", placeName)
-      return res.status(404).json([])
+      return res.status(200).json([])
     }
 
-    const reservationsRef = placeDoc.ref.collection("reservations")
+    console.log("📍 Using place document:", placeDoc.id)
+    const reservationsRef = db.collection("places").doc(placeDoc.id).collection("reservations")
     const snapshot = await reservationsRef.get()
 
     if (snapshot.empty) {
@@ -236,7 +294,14 @@ app.get("/api/profile/bookings/place/:placeName", async (req, res) => {
       ...doc.data(),
     }))
 
-    console.log("✅ Bookings fetched:", bookings)
+    // Sort bookings by creation time (newest first)
+    bookings.sort((a, b) => {
+      const timeA = a.createdAt ? new Date(a.createdAt) : new Date(0)
+      const timeB = b.createdAt ? new Date(b.createdAt) : new Date(0)
+      return timeB - timeA
+    })
+
+    console.log("✅ Bookings fetched and sorted:", bookings.length, "bookings for", placeDoc.id)
     res.status(200).json(bookings)
   } catch (err) {
     console.error("❌ Error fetching bookings for place:", err)
@@ -537,7 +602,27 @@ app.post(
         return url
       }
 
-      const aadharUrl = await uploadFile(files.aashaarcard, files.aashaarcard[0].originalname)
+      // Handle Aadhar: use existing URL or upload new file
+      let aadharUrl;
+      if (data.existingAadhaarUrl) {
+        aadharUrl = data.existingAadhaarUrl;
+      } else if (files.aashaarcard && files.aashaarcard[0]) {
+        aadharUrl = await uploadFile(files.aashaarcard, files.aashaarcard[0].originalname);
+      } else {
+        return res.status(400).json({ error: "No Aadhar card provided" });
+      }
+
+      // Upload other required files
+      if (!files.nocLetter || !files.nocLetter[0]) {
+        return res.status(400).json({ error: "NOC Letter is required" });
+      }
+      if (!files.buildingPermission || !files.buildingPermission[0]) {
+        return res.status(400).json({ error: "Building Permission is required" });
+      }
+      if (!files.placePicture || !files.placePicture[0]) {
+        return res.status(400).json({ error: "Place Picture is required" });
+      }
+
       const nocUrl = await uploadFile(files.nocLetter, files.nocLetter[0].originalname)
       const buildingUrl = await uploadFile(files.buildingPermission, files.buildingPermission[0].originalname)
       const picUrl = await uploadFile(files.placePicture, files.placePicture[0].originalname)
@@ -860,41 +945,40 @@ app.get("/api/dashboard/owner/:email", async (req, res) => {
   try {
     const { email } = req.params
 
-    // Get owner's registered places
-    const placesSnapshot = await db.collection("users").doc(email).collection("register").get()
+    // Get owner's registered places from the main places collection directly
+    const placesSnapshot = await db.collection("places").where("ownerEmail", "==", email).get()
     const ownerPlaces = placesSnapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }))
 
     let totalRevenue = 0
     let totalBookings = 0
     const placeMetrics = []
 
+    // Process each place individually
     for (const place of ownerPlaces) {
-      // Find corresponding place in main places collection
-      const mainPlaceSnapshot = await db.collection("places").where("userEmail", "==", email).get()
+      const reservationsSnapshot = await db.collection("places").doc(place.id).collection("reservations").get()
 
-      for (const mainPlaceDoc of mainPlaceSnapshot.docs) {
-        const reservationsSnapshot = await db.collection("places").doc(mainPlaceDoc.id).collection("reservations").get()
+      let placeRevenue = 0
+      const placeBookings = reservationsSnapshot.size
 
-        let placeRevenue = 0
-        const placeBookings = reservationsSnapshot.size
+      // Calculate owner's 2% commission from all reservations for this place
+      reservationsSnapshot.forEach((reservationDoc) => {
+        const reservation = reservationDoc.data()
+        const totalAmount = Number.parseFloat(reservation.total_amount || 0)
+        // Owner gets 2% of each booking
+        const ownerCommission = totalAmount * 0.02
+        placeRevenue += ownerCommission
+      })
 
-        reservationsSnapshot.forEach((reservationDoc) => {
-          const reservation = reservationDoc.data()
-          const totalAmount = Number.parseFloat(reservation.total_amount || 0)
-          placeRevenue += totalAmount
-        })
+      totalRevenue += placeRevenue
+      totalBookings += placeBookings
 
-        totalRevenue += placeRevenue
-        totalBookings += placeBookings
-
-        placeMetrics.push({
-          placeId: mainPlaceDoc.id,
-          placeName: place.placeName,
-          revenue: placeRevenue,
-          bookings: placeBookings,
-          verified: place.verified || false,
-        })
-      }
+      placeMetrics.push({
+        placeId: place.id,
+        placeName: place.placeName,
+        revenue: placeRevenue.toFixed(2),
+        bookings: placeBookings,
+        verified: place.verified || false,
+      })
     }
 
     res.status(200).json({

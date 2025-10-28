@@ -94,6 +94,15 @@ const [aadhaarUrl, setAadhaarUrl] = useState(null);
 
   useEffect(() => {
     const loadScript = (src) => {
+      // Check if the script is already loaded
+      if (document.querySelector(`script[src*="maps.googleapis.com"]`)) {
+        // If script already exists, just initialize the map
+        if (window.google && window.google.maps) {
+          window.initMap();
+        }
+        return;
+      }
+
       const script = document.createElement('script');
       script.src = src;
       script.async = true;
@@ -103,6 +112,11 @@ const [aadhaarUrl, setAadhaarUrl] = useState(null);
 
     if (currentStep === 6) {
       window.initMap = () => {
+        // Check if the required elements are available
+        if (!mapRef.current || !inputRef.current) {
+          return;
+        }
+
         const map = new window.google.maps.Map(mapRef.current, {
           center: { lat: 20.5937, lng: 78.9629 },
           zoom: 5,
@@ -159,9 +173,22 @@ const [aadhaarUrl, setAadhaarUrl] = useState(null);
         });
       };
 
-      loadScript(`https://maps.googleapis.com/maps/api/js?key=${mapsApiKey}&callback=initMap&libraries=places`);
+      // Load the script only if Google Maps is not already available
+      if (!window.google || !window.google.maps) {
+        loadScript(`https://maps.googleapis.com/maps/api/js?key=${mapsApiKey}&callback=initMap&libraries=places`);
+      } else {
+        // If Google Maps is already loaded, just initialize the map
+        window.initMap();
+      }
     }
-  }, [useLiveLocation, currentStep]);
+
+    // Cleanup function to remove the global initMap function when component unmounts
+    return () => {
+      if (window.initMap) {
+        delete window.initMap;
+      }
+    };
+  }, [useLiveLocation, currentStep, mapsApiKey]);
 
   const handleSendEmail = async () => {
     if (!userEmail) {
@@ -243,6 +270,9 @@ const [aadhaarUrl, setAadhaarUrl] = useState(null);
       });
       console.log('Extracted text:', text); // Log extracted text to the console
   
+      // Extract name from Aadhar card
+      extractNameFromAadhar(text);
+      
       // Validate Aadhaar after extracting text
       validateAadhaarCard(text);
     } catch (error) {
@@ -266,8 +296,11 @@ const [aadhaarUrl, setAadhaarUrl] = useState(null);
   const handleSubmit = async (e) => {
   e.preventDefault();
 
+  // Check if we have either a new Aadhar file or an existing Aadhar URL
+  const hasAadharDocument = aashaarcard || aadhaarUrl;
+
   if (!placeName || !address || !fromTime || !toTime || !fromDate || !toDate || !name ||
-    landmark.lat === null || landmark.lng === null || !aashaarcard || !nocLetter || !buildingPermission || !placePicture) {
+    landmark.lat === null || landmark.lng === null || !hasAadharDocument || !nocLetter || !buildingPermission || !placePicture) {
     toast.error("Please fill all fields and upload all documents");
     return;
   }
@@ -291,8 +324,15 @@ const [aadhaarUrl, setAadhaarUrl] = useState(null);
       accessType,
     };
 
+    // Handle Aadhar: either append new file or include existing URL
+    if (aashaarcard) {
+      formData.append('aashaarcard', aashaarcard);
+    } else if (aadhaarUrl) {
+      // If using existing Aadhar, include the URL in the payload
+      payload.existingAadhaarUrl = aadhaarUrl;
+    }
+    
     formData.append('data', JSON.stringify(payload));
-    formData.append('aashaarcard', aashaarcard);
     formData.append('nocLetter', nocLetter);
     formData.append('buildingPermission', buildingPermission);
     formData.append('placePicture', placePicture);
@@ -308,6 +348,20 @@ const [aadhaarUrl, setAadhaarUrl] = useState(null);
       toast.success("Place registered successfully");
       handleSendEmail(); // Still done from frontend if needed
       setCurrentStep(1);
+      // Reset form
+      setPlaceName('');
+      setAddress('');
+      setName('');
+      setParkingNumber('');
+      setFromTime('');
+      setToTime('');
+      setFromDate('');
+      setToDate('');
+      setAadharCard(null);
+      setAadhaarUrl(null);
+      setNocLetter(null);
+      setBuildingPermission(null);
+      setPlacePicture(null);
     } else {
       toast.error(result.error || "Failed to register place");
     }
@@ -323,8 +377,12 @@ const [aadhaarUrl, setAadhaarUrl] = useState(null);
     console.log("Received file:", file); // Debugging: log the received file
     setter(file);
   
-    // Only run OCR and Aadhaar validation for the Aadhaar field
+    // If uploading a new Aadhar card, clear the existing URL and reset states
     if (isAadhar) {
+      setAadhaarUrl(null); // Clear the existing preview URL
+      setAadharName(''); // Clear extracted name
+      setIsAadharValid(null); // Reset validation status
+      
       processOCR(file)
         .then(() => console.log("OCR processed for Aadhaar card")) // Logging the OCR for Aadhaar
         .catch((error) => console.error("OCR processing failed:", error));
@@ -333,6 +391,45 @@ const [aadhaarUrl, setAadhaarUrl] = useState(null);
   
   
   // Adjusted validateAadhaarCard to avoid running on other fields
+// Function to extract name from Aadhar card text
+const extractNameFromAadhar = (ocrText) => {
+  // Common patterns to find name in Aadhar card
+  const lines = ocrText.split('\n').map(line => line.trim()).filter(line => line.length > 0);
+  
+  // Look for name patterns (usually after keywords like "Name" or before Aadhaar number)
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+    
+    // Skip lines that are clearly not names
+    if (line.match(/^\d+$/) || // Pure numbers
+        line.match(/^[A-Z]{2,4}\d+/) || // State codes like "KA12"
+        line.toLowerCase().includes('government') ||
+        line.toLowerCase().includes('india') ||
+        line.toLowerCase().includes('aadhaar') ||
+        line.toLowerCase().includes('unique') ||
+        line.toLowerCase().includes('authority') ||
+        line.length < 3) {
+      continue;
+    }
+    
+    // Look for potential name (alphabetic characters, possibly with spaces)
+    if (line.match(/^[A-Za-z\s]+$/) && line.length > 3 && line.length < 50) {
+      const extractedName = line.trim();
+      setAadharName(extractedName);
+      setName(extractedName); // Auto-fill the name field
+      toast.info(`Name extracted from Aadhar: ${extractedName}`, {
+        style: {
+          backgroundColor: '#17a2b8',
+          color: '#fff',
+          fontSize: '16px',
+          borderRadius: '8px',
+        },
+      });
+      break;
+    }
+  }
+};
+
 // Function to validate Aadhaar card by checking the number and keywords
 const validateAadhaarCard = (ocrText) => {
   const aadhaarNumberMatch = ocrText.match(/\b[2-9]{1}[0-9]{11}\b/);
@@ -498,22 +595,14 @@ return (
     <div className="row1">
       {/* Aadhaar Upload / Preview */}
 <label className="flabel">Upload Aadhaar Card:</label>
-{aadhaarUrl ? (
-  <div className="file-preview-box">
-    <iframe
-      src={aadhaarUrl}
-      title="Aadhaar Preview"
-      className="aadhaar-preview"
-    ></iframe>
-  </div>
-) : (
-  <FileUpload
-    id="aadhar"
-    className="register-s3-u"
-    required
-    onFileChange={(file) => handleFileChange(file, setAadharCard, true)} // Aadhaar validation
-  />
-)}
+<FileUpload
+  id="aadhar"
+  className="register-s3-u"
+  required
+  existingFileUrl={aadhaarUrl}
+  existingFileName="Aadhaar Card"
+  onFileChange={(file) => handleFileChange(file, setAadharCard, true)} // Aadhaar validation
+/>
 
       {/* NOC Upload */}
       <label className="flabel">Upload NOC Letter:</label>
