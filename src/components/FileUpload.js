@@ -1,15 +1,27 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import "./cssfiles/FileUpload.css";
 
 const uploadIcon = './drag-and-drop.png';
-const FileUpload = ({ onFileChange, label, required, id }) => {
+const FileUpload = ({ onFileChange, label, required, id, existingFileUrl, existingFileName }) => {
   const [files, setFiles] = useState([]);
+  const [hasExistingFile, setHasExistingFile] = useState(false);
+
+  // Handle existing file URL
+  useEffect(() => {
+    if (existingFileUrl && existingFileName) {
+      setHasExistingFile(true);
+      setFiles([]);
+    } else {
+      setHasExistingFile(false);
+    }
+  }, [existingFileUrl, existingFileName]);
 
   const handleDrop = (e) => {
     e.preventDefault();
     const droppedFiles = Array.from(e.dataTransfer.files);
     console.log("Dropped files:", droppedFiles);
     setFiles(droppedFiles);
+    setHasExistingFile(false);
     if (droppedFiles.length > 0) {
       handleFileChange(droppedFiles[0], id);
     }
@@ -23,6 +35,7 @@ const FileUpload = ({ onFileChange, label, required, id }) => {
     if (file) {
       console.log(`File received in ${id}:`, file);
       setFiles([file]);
+      setHasExistingFile(false);
       onFileChange(file, id);
     } else {
       console.error("No file was passed to handleFileChange.");
@@ -46,6 +59,34 @@ const FileUpload = ({ onFileChange, label, required, id }) => {
     }
   };
 
+  const renderExistingFilePreview = () => {
+    return (
+      <div className="existing-file-preview">
+        <div className="pdf-preview">
+          <i className="fa fa-file-pdf-o" aria-hidden="true"></i>
+          <a href={existingFileUrl} target="_blank" rel="noopener noreferrer" className="file-name">
+            {existingFileName}
+          </a>
+        </div>
+        <div className="existing-file-indicator">
+          <i className="fas fa-check-circle"></i>
+          <span>Existing document</span>
+        </div>
+        <button 
+          type="button" 
+          className="change-file-btn"
+          onClick={(e) => {
+            e.stopPropagation();
+            setHasExistingFile(false);
+            setFiles([]);
+          }}
+        >
+          Upload New File
+        </button>
+      </div>
+    );
+  };
+
   return (
     <div className="file-upload">
       <label>{label}{required && '*'}</label>
@@ -53,9 +94,11 @@ const FileUpload = ({ onFileChange, label, required, id }) => {
         className="drop-box"
         onDrop={handleDrop}
         onDragOver={handleDragOver}
-        onClick={() => document.getElementById(`fileInput_${id}`).click()}
+        onClick={() => !hasExistingFile && document.getElementById(`fileInput_${id}`).click()}
       >
-       {files.length === 0 ? (
+       {hasExistingFile ? (
+          renderExistingFilePreview()
+        ) : files.length === 0 ? (
           <div className="upload-placeholder">
             <img src={uploadIcon} alt="Upload" className="upload-icon" /> {/* Use the PNG icon */}
             <span className="upload-text">Drag and drop here</span>

@@ -20,7 +20,7 @@ const Header = () => {
       <div className="container">
         <div className="logo">
           <img src="/urbanlogo1.png" alt="UrbanDepot Logo" className="logo-img" />
-          <h2>urbandepot</h2>
+          <h2>UrbanDepot</h2>
         </div>
         <nav className={`nav ${isMobileMenuOpen ? "nav-open" : ""}`}>
           <Link to="/login" className="linksa">Sign In</Link>

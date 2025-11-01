@@ -1,9 +1,12 @@
 import cv2
 import datetime
 import time
+import os
 
 # --- Video setup ---
-video_path = r"c:\UrbanDepot-2\backend\scripts\car_demo.mp4"
+# Get the directory where this script is located
+script_dir = os.path.dirname(os.path.abspath(__file__))
+video_path = os.path.join(script_dir, "car_demo.mp4")
 cap = cv2.VideoCapture(video_path)
 if not cap.isOpened():
     print(f"Failed to open video file: {video_path}", flush=True)

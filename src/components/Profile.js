@@ -38,22 +38,6 @@ const [demoExitTime, setDemoExitTime] = useState(null);
         return () => unsubscribe(); 
     }, [navigate]);
 
-    useEffect(() => {
-  fetch("http://localhost:8080/api/run-demo")
-    .then((res) => res.json())
-    .then((data) => {
-      console.log("✅ API Response:", data);
-      
-      if (data.entryTime) {
-        console.log("Entry Time:", data.entryTime);
-      }
-      if (data.exitTime) {
-        console.log("Exit Time:", data.exitTime);
-      }
-    })
-    .catch((err) => console.error("❌ API Error:", err));
-}, []);
-
 
     const extractNameFromEmail = (email) => {
         const namePart = email.split('@')[0];
@@ -125,11 +109,28 @@ const [demoExitTime, setDemoExitTime] = useState(null);
         setSelectedPlace(place);
 
         // Use the correct property from registeredPlaces
-        const placeIdentifier = place.placeName; // <-- THIS IS IMPORTANT
+        const placeIdentifier = place.placeName;
+        
+        console.log("🔍 Fetching bookings for place:", {
+            place: place,
+            placeName: place.placeName,
+            placeId: place.id,
+            identifier: placeIdentifier
+        });
 
-        const res = await fetch(`${process.env.REACT_APP_API_URL}/api/profile/bookings/place/${placeIdentifier}`);
+        const res = await fetch(`${process.env.REACT_APP_API_URL}/api/profile/bookings/place/${encodeURIComponent(placeIdentifier)}`);
+        
+        if (!res.ok) {
+            throw new Error(`HTTP error! status: ${res.status}`);
+        }
+        
         const data = await res.json();
+        console.log("📊 Received bookings data:", data);
         setPlaceBookings(data);
+        
+        if (data.length === 0) {
+            console.log("⚠️ No bookings found for this place");
+        }
     } catch (error) {
         console.error("Error fetching place bookings:", error);
         toast.error("Error fetching bookings for this place.");
@@ -261,123 +262,132 @@ const [demoExitTime, setDemoExitTime] = useState(null);
 {selectedPlace && (
   <div className="overlay">
     <div className="overlay-card">
-      <h4>Bookings for {selectedPlace.placeName}</h4>
+      <div className="overlay-header">
+        <h4>Bookings for {selectedPlace.placeName}</h4>
+        <button className="close-x-btn" onClick={() => setSelectedPlace(null)}>
+          ×
+        </button>
+      </div>
 
-      {/* Button to view live/demo feed */}
-      <button
-  className="live-feed-btn"
-  onClick={() => {
-    setShowDemoVideo(true); // show video immediately
+      <div className="overlay-card-content">
+        {/* Button to view live/demo feed */}
+        <button
+          className="live-feed-btn"
+          onClick={() => {
+            setShowDemoVideo(true); // show video immediately
 
-    // Run demo script asynchronously
-   fetch(`${process.env.REACT_APP_API_URL}/api/run-demo`)
-  .then(res => res.json())
-  .then(data => {
-    console.log("Demo logs:", data.logs);
-    setDemoEntryTime(data.entryTime); // backend should return entryTime
-    setDemoExitTime(data.exitTime);   // backend should return exitTime
-  })
-  .catch(err => console.error("Error running demo:", err));
+            // Reset demo times before running
+            setDemoEntryTime(null);
+            setDemoExitTime(null);
 
-  }}
->
-    Run Demo Feed
-</button>
+            // Run demo script asynchronously
+           fetch(`${process.env.REACT_APP_API_URL}/api/run-demo`)
+          .then(res => res.json())
+          .then(data => {
+            console.log("Demo response data:", data);
+            if (data.entryTime) {
+              console.log("Setting entry time:", data.entryTime);
+              setDemoEntryTime(data.entryTime);
+            }
+            if (data.exitTime) {
+              console.log("Setting exit time:", data.exitTime);
+              setDemoExitTime(data.exitTime);
+            }
+          })
+          .catch(err => console.error("Error running demo:", err));
 
+          }}
+        >
+            Run Demo Feed
+        </button>
 
+        {loadingPlaceBookings ? (
+          <p>Loading...</p>
+        ) : (
+          placeBookings.length > 0 ? (
+            <div className="card-container">
+              {placeBookings.map((booking) => (
+                <div key={booking.id} className="overlay-booking-card">
+                  <div className="booking-header">
+                    <span className={`badge1 ${getBookingStatus(booking).toLowerCase()}`}>
+                      {getBookingStatus(booking)}
+                    </span>
+                    <h5>Booking #{booking.id}</h5>
+                  </div>
 
-    {loadingPlaceBookings ? (
-  <p>Loading...</p>
-) : (
-  placeBookings.length > 0 ? (
-    <div className="card-container">
-      {placeBookings.map((booking) => (
-        <div key={booking.id} className="overlay-booking-card">
-          <div className="booking-header">
-            <span className={`badge1 ${getBookingStatus(booking).toLowerCase()}`}>
-              {getBookingStatus(booking)}
-            </span>
-            <h5>Booking #{booking.id}</h5>
-          </div>
+                  <div className="booking-details">
+                    <div className="detail-row">
+                      <span className="label">Check-in:</span>
+                      <span className="value">{booking.checkin}</span>
+                    </div>
 
-          <div className="booking-details">
-            
+                    <div className="detail-row">
+                      <span className="label">Check-out:</span>
+                      <span className="value">{booking.checkout}</span>
+                    </div>
 
-            <div className="detail-row">
-              <span className="label">Check-in:</span>
-              <span className="value">{booking.checkin}</span>
+                    <div className="detail-row">
+                      <span className="label">Vehicle Type:</span>
+                      <span className="value">{booking.vehicleType}</span>
+                    </div>
+
+                    <div className="detail-row charge">
+                      <span className="label">Charge:</span>
+                      <span className="value">Rs. {booking.total_amount}</span>
+                    </div>
+
+                    {/* Detected Times */}
+                    <div className="detail-row">
+                      <span className="label">Detected Entry Time:</span>
+                      <span className="value">{demoEntryTime || "--"}</span>
+                    </div>
+
+                    <div className="detail-row">
+                      <span className="label">Detected Exit Time:</span>
+                      <span className="value">{demoExitTime || "--"}</span>
+                    </div>
+                  </div>
+                </div>
+              ))}
             </div>
+          ) : (
+            <p>No bookings for this place.</p>
+          )
+        )}
+      </div>
 
-            <div className="detail-row">
-              <span className="label">Check-out:</span>
-              <span className="value">{booking.checkout}</span>
-            </div>
-
-            <div className="detail-row">
-              <span className="label">Vehicle Type:</span>
-              <span className="value">{booking.vehicleType}</span>
-            </div>
-
-            <div className="detail-row charge">
-              <span className="label">Charge:</span>
-              <span className="value">Rs. {booking.total_amount}</span>
-            </div>
-
-            {/* Detected Times */}
-            <div className="detail-row">
-              <span className="label">Detected Entry Time:</span>
-              <span className="value">{demoEntryTime || "--"}</span>
-            </div>
-
-            <div className="detail-row">
-              <span className="label">Detected Exit Time:</span>
-              <span className="value">{demoExitTime || "--"}</span>
-            </div>
-<div className="detail-row">
-  <span className="label">Validation:</span>
-  <span
-    className={`value ${
-      checkDetectedValidity(booking, demoEntryTime, demoExitTime) === "Valid Parking"
-        ? "valid-text"
-        : "invalid-text"
-    }`}
-  >
-    {checkDetectedValidity(booking, demoEntryTime, demoExitTime)}
-  </span>
-</div>
-
-
-          </div>
-        </div>
-      ))}
-    </div>
-  ) : (
-    <p>No bookings for this place.</p>
-  )
-)}
-
-{/* Close overlay */}
-<button className="close-overlay-btn" onClick={() => setSelectedPlace(null)}>
-  Close
-</button>
-
-
+      <div className="overlay-card-footer">
+        <button className="close-overlay-btn" onClick={() => setSelectedPlace(null)}>
+          Close
+        </button>
+      </div>
     </div>
 
     {/* Demo video overlay */}
     {showDemoVideo && (
-  <div className="demo-video-overlay">
-    <div className="demo-video-card">
-      <button className="close-overlay-btn" onClick={() => setShowDemoVideo(false)}>Close</button>
-      
-      <video width="640" height="360" controls autoPlay>
-        <source src="/car_demo.mp4" type="video/mp4" />
-      </video>
-
-     
-    </div>
-  </div>
-)}
+      <div className="demo-video-overlay">
+        <div className="demo-video-card">
+          <div className="demo-video-header">
+            <h4>Demo Feed</h4>
+            <button className="close-x-btn" onClick={() => setShowDemoVideo(false)}>
+              ×
+            </button>
+          </div>
+          
+          <div className="demo-video-content">
+            <video width="640" height="360" controls autoPlay>
+              <source src="/car_demo.mp4" type="video/mp4" />
+            </video>
+            
+            <div style={{ marginTop: '15px' }}>
+              <button className="demo-close-btn" onClick={() => setShowDemoVideo(false)}>
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    )}
 
   </div>
 )}
