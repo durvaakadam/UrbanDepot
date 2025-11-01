@@ -77,16 +77,27 @@ const [aadhaarUrl, setAadhaarUrl] = useState(null);
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (user) => {
       if (user) {
+        console.log("✅ AUTH: User logged in:", user.email);
         setUserEmail(user.email);
-        setOwnerEmail(user.email); // Set the ownerEmail to the logged-in user's email
+        setOwnerEmail(user.email);
         setUserName(user.displayName || user.email.split('@')[0]);
       } else {
+        console.log("❌ AUTH: No user logged in");
         setErrorMessage('No user is logged in. Please log in to register a place.');
       }
     });
   
     return () => unsubscribe();
   }, []);
+  
+  // Log state changes for debugging Aadhaar card
+  useEffect(() => {
+    console.log("📊 AADHAAR STATE: aashaarcard changed:", aashaarcard ? (typeof aashaarcard === 'string' ? 'URL' : 'File') : 'null');
+  }, [aashaarcard]);
+  
+  useEffect(() => {
+    console.log("📊 AADHAAR STATE: aadhaarUrl changed:", aadhaarUrl);
+  }, [aadhaarUrl]);
   
   useEffect(() => {
   window.scrollTo({ top: 0, behavior: "smooth" });
@@ -207,29 +218,50 @@ const [aadhaarUrl, setAadhaarUrl] = useState(null);
   useEffect(() => {
     const fetchAadhaar = async () => {
       try {
-        if (!userEmail) return;
+        console.log("📄 AADHAAR FETCH: Starting fetch process...");
+        console.log("📄 AADHAAR FETCH: User email:", userEmail);
+        
+        if (!userEmail) {
+          console.log("⚠️ AADHAAR FETCH: No user email, skipping fetch");
+          return;
+        }
 
+        console.log("🔗 AADHAAR FETCH: Connecting to Firestore...");
+        console.log("🔗 AADHAAR FETCH: Database instance:", db ? "Connected" : "Not connected");
+        
         // go inside user -> register subcollection
         const registerRef = collection(db, "users", userEmail, "register");
+        console.log("📂 AADHAAR FETCH: Querying collection path: users/" + userEmail + "/register");
+        
         const snapshot = await getDocs(registerRef);
+        console.log("📊 AADHAAR FETCH: Query complete. Documents found:", snapshot.size);
 
         if (!snapshot.empty) {
           // pick first place (you can loop if you want multiple)
           const firstPlaceDoc = snapshot.docs[0];
           const data = firstPlaceDoc.data();
+          console.log("📝 AADHAAR FETCH: First document data:", data);
+          console.log("📝 AADHAAR FETCH: Documents field:", data.documents);
 
           if (data.documents?.aashaarcard) {
+            console.log("✅ AADHAAR FETCH: Aadhaar URL found:", data.documents.aashaarcard);
             setAadhaarUrl(data.documents.aashaarcard);
+            setAadharCard(data.documents.aashaarcard);
+            console.log("✅ AADHAAR FETCH: States updated with URL");
           } else {
+            console.log("⚠️ AADHAAR FETCH: No aashaarcard field in documents");
             setAadhaarUrl(null);
           }
         } else {
+          console.log("⚠️ AADHAAR FETCH: No documents in register collection");
           setAadhaarUrl(null);
         }
       } catch (error) {
-        console.error("Error fetching Aadhaar:", error);
+        console.error("❌ AADHAAR FETCH ERROR:", error);
+        console.error("❌ AADHAAR FETCH ERROR Details:", error.message);
       } finally {
         setLoading(false);
+        console.log("🏁 AADHAAR FETCH: Process complete");
       }
     };
 
@@ -265,12 +297,47 @@ const [aadhaarUrl, setAadhaarUrl] = useState(null);
 
   const handleSubmit = async (e) => {
   e.preventDefault();
+  
+  console.log("🚀 SUBMIT: Form submission started");
+  console.log("📋 SUBMIT: Checking all fields...");
+  console.log("📋 placeName:", placeName, "- Valid:", !!placeName);
+  console.log("📋 address:", address, "- Valid:", !!address);
+  console.log("📋 name:", name, "- Valid:", !!name);
+  console.log("📋 fromTime:", fromTime, "- Valid:", !!fromTime);
+  console.log("📋 toTime:", toTime, "- Valid:", !!toTime);
+  console.log("📋 fromDate:", fromDate, "- Valid:", !!fromDate);
+  console.log("📋 toDate:", toDate, "- Valid:", !!toDate);
+  console.log("📋 landmark.lat:", landmark.lat, "- Valid:", landmark.lat !== null);
+  console.log("📋 landmark.lng:", landmark.lng, "- Valid:", landmark.lng !== null);
+  console.log("📋 aashaarcard:", aashaarcard ? (typeof aashaarcard === 'string' ? 'URL' : 'File') : 'MISSING', "- Valid:", !!aashaarcard);
+  console.log("📋 nocLetter:", nocLetter, "- Valid:", !!nocLetter);
+  console.log("📋 buildingPermission:", buildingPermission, "- Valid:", !!buildingPermission);
+  console.log("📋 placePicture:", placePicture, "- Valid:", !!placePicture);
+
+  // Check which fields are missing
+  const missingFields = [];
+  if (!placeName) missingFields.push("Place Name");
+  if (!address) missingFields.push("Address");
+  if (!name) missingFields.push("Name");
+  if (!fromTime) missingFields.push("From Time");
+  if (!toTime) missingFields.push("To Time");
+  if (!fromDate) missingFields.push("From Date");
+  if (!toDate) missingFields.push("To Date");
+  if (landmark.lat === null) missingFields.push("Landmark Latitude");
+  if (landmark.lng === null) missingFields.push("Landmark Longitude");
+  if (!aashaarcard) missingFields.push("Aadhaar Card");
+  if (!nocLetter) missingFields.push("NOC Letter");
+  if (!buildingPermission) missingFields.push("Building Permission");
+  if (!placePicture) missingFields.push("Place Picture");
 
   if (!placeName || !address || !fromTime || !toTime || !fromDate || !toDate || !name ||
     landmark.lat === null || landmark.lng === null || !aashaarcard || !nocLetter || !buildingPermission || !placePicture) {
-    toast.error("Please fill all fields and upload all documents");
+    console.log("❌ SUBMIT: Validation failed. Missing fields:", missingFields);
+    toast.error("Please fill all fields and upload all documents. Missing: " + missingFields.join(", "));
     return;
   }
+  
+  console.log("✅ SUBMIT: All fields validated successfully");
 
   setLoading(true);
 
@@ -292,42 +359,63 @@ const [aadhaarUrl, setAadhaarUrl] = useState(null);
     };
 
     formData.append('data', JSON.stringify(payload));
-    formData.append('aashaarcard', aashaarcard);
+    
+    console.log("📦 SUBMIT: Building FormData...");
+    console.log("📦 aashaarcard type:", typeof aashaarcard);
+    
+    // If aashaarcard is a string (URL), just append the URL, else append the file
+    if (typeof aashaarcard === 'string') {
+      console.log("📦 SUBMIT: Using existing Aadhaar URL");
+      formData.append('aashaarcardUrl', aashaarcard);
+    } else {
+      console.log("📦 SUBMIT: Uploading new Aadhaar file");
+      formData.append('aashaarcard', aashaarcard);
+    }
+    
     formData.append('nocLetter', nocLetter);
     formData.append('buildingPermission', buildingPermission);
     formData.append('placePicture', placePicture);
+    
+    console.log("🌐 SUBMIT: Sending request to:", `${process.env.REACT_APP_API_URL}/api/register-place`);
 
     const response = await fetch(`${process.env.REACT_APP_API_URL}/api/register-place`, {
       method: 'POST',
       body: formData
     });
 
+    console.log("📡 SUBMIT: Response status:", response.status);
     const result = await response.json();
+    console.log("📡 SUBMIT: Response data:", result);
 
     if (response.ok) {
+      console.log("✅ SUBMIT: Registration successful!");
       toast.success("Place registered successfully");
       handleSendEmail(); // Still done from frontend if needed
       setCurrentStep(1);
     } else {
+      console.log("❌ SUBMIT: Registration failed:", result.error);
       toast.error(result.error || "Failed to register place");
     }
   } catch (error) {
-    console.error('Error:', error);
+    console.error('❌ SUBMIT ERROR:', error);
+    console.error('❌ SUBMIT ERROR Details:', error.message);
     toast.error("Something went wrong");
   } finally {
     setLoading(false);
+    console.log("🏁 SUBMIT: Process complete");
   }
 };
 
   const handleFileChange = (file, setter, isAadhar = false) => {
-    console.log("Received file:", file); // Debugging: log the received file
+    console.log("📁 FILE UPLOAD:", isAadhar ? "AADHAAR CARD" : "Other document", "- File:", file?.name || file);
     setter(file);
   
     // Only run OCR and Aadhaar validation for the Aadhaar field
     if (isAadhar) {
+      console.log("🔍 AADHAAR: Starting OCR validation...");
       processOCR(file)
-        .then(() => console.log("OCR processed for Aadhaar card")) // Logging the OCR for Aadhaar
-        .catch((error) => console.error("OCR processing failed:", error));
+        .then(() => console.log("✅ AADHAAR: OCR validation complete"))
+        .catch((error) => console.error("❌ AADHAAR: OCR failed:", error));
     }
   };
   
