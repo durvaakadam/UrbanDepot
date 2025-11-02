@@ -246,8 +246,8 @@ const [demoExitTime, setDemoExitTime] = useState(null);
                                     <div key={place.id} className="card">
                                         <h4><FaMapMarkerAlt /> {place.placeName}</h4>
                                         <p><strong>Address:</strong> {place.address}</p>
-                                        <p><strong>Start Date:</strong> {place.dateRange.from}</p>
-                                        <p><strong>End Date:</strong> {place.dateRange.to}</p>
+                                        <p><strong>Start Date:</strong> {place.dateRange?.from || 'N/A'}</p>
+                                        <p><strong>End Date:</strong> {place.dateRange?.to || 'N/A'}</p>
                                         <p><strong>Access Type:</strong> {place.accessType}</p>
                                         <button onClick={() => viewPlaceBookings(place)} className="delete-button">
                                             View Bookings

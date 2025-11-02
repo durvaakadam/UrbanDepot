@@ -361,8 +361,6 @@ const [aadhaarUrl, setAadhaarUrl] = useState(null);
   if (!placePicture) missingFields.push("Place Picture");
 
   if (!placeName || !address || !fromTime || !toTime || !fromDate || !toDate || !name ||
-    landmark.lat === null || landmark.lng === null || !hasAadharDocument || !nocLetter || !buildingPermission || !placePicture) {
-    toast.error("Please fill all fields and upload all documents");
     landmark.lat === null || landmark.lng === null || !aashaarcard || !nocLetter || !buildingPermission || !placePicture) {
     console.log("❌ SUBMIT: Validation failed. Missing fields:", missingFields);
     toast.error("Please fill all fields and upload all documents. Missing: " + missingFields.join(", "));
